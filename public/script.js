@@ -43,7 +43,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const TOTAL_CELLS = 81;
     const GRID_SIZE = 9;
     // Static Board Definition (Must match startNewGame)
-    const STATIC_NUMBERS = [3, 2, 16, 7, 5, 13, 8, 10, 2, 6, 19, 12, 3, 5, 9, 16, 7, 18, 20, 14, 2, 8, 5, 10, 13, 3, 6, 17, 12, 7, 16, 9, 5, 2, 19, 8, 14, 10, 3, 6, "FREE", 7, 13, 5, 2, 16, 9, 12, 18, 20, 7, 10, 17, 8, 14, 3, 2, 6, 13, 5, 19, 9, 15, 7, 12, 16, 10, 8, 4, 2, 17, 13, 6, 18, 5, 15, 9, 1, 11, 19, 14];
+    // Counts: [1:1, 2:7, 3:7, 4:1, 5:6, 6:5, 7:6, 8:5, 9:4, 10:6, 11:1, 12:4, 13:5, 14:3, 15:2, 16:5, 17:3, 18:3, 19:3, 20:3]
+    const STATIC_NUMBERS = [3, 2, 16, 7, 5, 13, 8, 10, 2, 6, 19, 12, 3, 5, 9, 16, 7, 18, 20, 14, 2, 8, 5, 10, 13, 3, 6, 17, 12, 7, 16, 9, 3, 2, 19, 8, 14, 10, 3, 6, "FREE", 7, 13, 5, 2, 16, 9, 12, 18, 20, 7, 10, 17, 8, 3, 2, 6, 13, 5, 19, 9, 15, 7, 12, 16, 10, 8, 4, 2, 17, 13, 6, 18, 15, 20, 5, 1, 11, 14, 3, 10];
 
     let isGameOver = false;
     let currentUploadedImage = null;
@@ -942,7 +943,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (regenerateNumbers) {
             // Static Board Configuration (1-20 balanced, same for all users)
-            numbers = [3, 2, 16, 7, 5, 13, 8, 10, 2, 6, 19, 12, 3, 5, 9, 16, 7, 18, 20, 14, 2, 8, 5, 10, 13, 3, 6, 17, 12, 7, 16, 9, 5, 2, 19, 8, 14, 10, 3, 6, "FREE", 7, 13, 5, 2, 16, 9, 12, 18, 20, 7, 10, 17, 8, 14, 3, 2, 6, 13, 5, 19, 9, 15, 7, 12, 16, 10, 8, 4, 2, 17, 13, 6, 18, 5, 15, 9, 1, 11, 19, 14];
+            numbers = [...STATIC_NUMBERS];
         }
 
         renderGrid();
@@ -971,19 +972,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        isGameOver = false;
-        cellImages = {};
-
-        const cells = document.querySelectorAll('.bingo-cell');
-        cells.forEach(cell => {
-            const index = cell.dataset.index;
-            if (numbers[index] === "FREE") return;
-            cell.classList.remove('active', 'win-cell');
-            cell.style.backgroundImage = 'none';
-            cell.style.color = '';
-        });
-        closeWinOverlay();
-        saveState();
+        // Restart with fresh STATIC_NUMBERS
+        startNewGame(true);
         showToast('Board Reset & Images Deleted');
     }
 
@@ -1055,24 +1045,41 @@ document.addEventListener('DOMContentLoaded', () => {
             reader.onload = function (event) {
                 const img = new Image();
                 img.onload = function () {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 300;
-                    const scaleSize = MAX_WIDTH / img.width;
-                    const newWidth = MAX_WIDTH;
-                    const newHeight = img.height * scaleSize;
+                    let finalDataUrl;
+                    // If file is already small (< 150KB), don't shrink it aggressively
+                    if (file.size <= 150 * 1024) {
+                        // Keep original quality if small enough (re-encoding might actually increase size,
+                        // but to ensure format consistency we can still draw to canvas at full size or just use original data URL)
+                        // To be safe and consistent, just use the original base64.
+                        finalDataUrl = event.target.result;
+                    } else {
+                        // If file is large, reduce size reasonably. 
+                        // Mobile photos are often 3000px+. 800px is a good balance for web visibility (~80-150KB at 0.8 quality).
+                        const MAX_WIDTH = 800;
+                        let newWidth = img.width;
+                        let newHeight = img.height;
 
-                    canvas.width = newWidth;
-                    canvas.height = newHeight;
+                        if (img.width > MAX_WIDTH) {
+                            newWidth = MAX_WIDTH;
+                            newHeight = img.height * (MAX_WIDTH / img.width);
+                        }
 
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, newWidth, newHeight);
+                        const canvas = document.createElement('canvas');
+                        canvas.width = newWidth;
+                        canvas.height = newHeight;
 
-                    currentUploadedImage = canvas.toDataURL('image/jpeg', 0.7);
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, newWidth, newHeight);
 
+                        // Compression target
+                        finalDataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                    }
+
+                    currentUploadedImage = finalDataUrl;
                     imagePreview.style.backgroundImage = `url(${currentUploadedImage})`;
                     imagePreview.classList.remove('hidden');
                     btnConfirmUpload.disabled = false;
-                }
+                };
                 img.src = event.target.result;
             };
             reader.readAsDataURL(file);
