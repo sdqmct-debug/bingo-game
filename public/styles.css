@@ -21,8 +21,8 @@
 
     --glass-bg: rgba(255, 255, 255, 0.85);
     --glass-border: rgba(27, 94, 32, 0.2);
-    --cell-size: 45px;
-    --gap-size: 8px;
+    --cell-size: 50px;
+    --gap-size: 5px;
     --error-color: #ef4444;
 }
 
@@ -297,19 +297,16 @@ h1 {
 
 .bingo-cell {
     width: 60px;
-    /* Slightly larger for 9x9 */
     height: 60px;
     display: flex;
     justify-content: center;
     align-items: center;
     background: #f1f5f9;
-    /* Slate 100 */
     border-radius: 8px;
     font-weight: 700;
     cursor: pointer;
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     border: 2px solid white;
-    /* White border request */
     user-select: none;
     font-size: 1.2rem;
     color: #000000;
